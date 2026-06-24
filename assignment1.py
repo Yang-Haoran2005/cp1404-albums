@@ -5,7 +5,7 @@ https://github.com/Yang-Haoran2005/cp1404-albums
 A program to manage a collection of music albums, tracking which ones
 are required listening and which have been completed.
 Estimate: 4 hours
-Actual:
+Actual: 3.5 hours
 """
 
 import random
@@ -29,8 +29,8 @@ def main():
     choice = ""
     while choice != "Q":
         print("\nMenu:")
-        print("D - Display albums")
-        print("R - Recommend an album")
+        print("D - Display all albums")
+        print("R - Recommend a random album")
         print("A - Add new album")
         print("M - Mark an album as completed")
         print("Q - Quit")
@@ -45,7 +45,7 @@ def main():
         elif choice == "M":
             mark_album_completed(albums)
         elif choice == "Q":
-            save_albums(FILENAME, albums)
+            save_albums(albums)
             print(f"{len(albums)} albums saved to {FILENAME}")
             print("Have a nice day :)")
         else:
@@ -60,7 +60,7 @@ def load_albums(filename):
         for line in in_file:
             line = line.strip()
             if line:
-                parts = line.split(",")
+                parts = [part.strip() for part in line.split(",")]
                 title = parts[TITLE_INDEX]
                 artist = parts[ARTIST_INDEX]
                 year = int(parts[YEAR_INDEX])
@@ -68,26 +68,29 @@ def load_albums(filename):
                 albums.append([title, artist, year, status])
         in_file.close()
     except FileNotFoundError:
-        print(f"{filename} not found. Starting with empty list.")
+        print(f"Error, {filename} not found!")
     return albums
 
 
-def save_albums(filename, albums):
+def save_albums(albums):
     """Save albums to CSV file."""
-    out_file = open(filename, "w")
+    out_file = open(FILENAME, "w")
     for album in albums:
-        print(f"{album[TITLE_INDEX]},{album[ARTIST_INDEX]},{album[YEAR_INDEX]},{album[STATUS_INDEX]}", file=out_file)
+        out_file.write(
+            f"{album[TITLE_INDEX]},{album[ARTIST_INDEX]},"
+            f"{album[YEAR_INDEX]},{album[STATUS_INDEX]}\n")
     out_file.close()
 
 
 def display_albums(albums):
-    """Display albums sorted by status then year, with alignment."""
+    """Display albums sorted with required first, then by year."""
     if len(albums) == 0:
         print("No albums to display.")
         return
 
-    # Sort by status (required first) then by year
-    sorted_albums = sorted(albums, key=itemgetter(STATUS_INDEX, YEAR_INDEX))
+    # Sort by year first, then stable-sort by status (reverse: r before c)
+    sorted_albums = sorted(albums, key=itemgetter(YEAR_INDEX))
+    sorted_albums.sort(key=itemgetter(STATUS_INDEX), reverse=True)
 
     # Calculate column widths for alignment
     max_title_length = max(len(album[TITLE_INDEX]) for album in sorted_albums)
@@ -96,27 +99,29 @@ def display_albums(albums):
     required_count = 0
     for i, album in enumerate(sorted_albums):
         if album[STATUS_INDEX] == REQUIRED:
-            marker = "*"
             required_count += 1
+            print(f"*{i + 1}. {album[TITLE_INDEX]:{max_title_length}s} "
+                  f"by {album[ARTIST_INDEX]:{max_artist_length}s} "
+                  f"{album[YEAR_INDEX]}")
         else:
-            marker = " "
-        print(f"{marker} {i + 1}. {album[TITLE_INDEX]:{max_title_length}s} - "
-              f"{album[ARTIST_INDEX]:{max_artist_length}s} ({album[YEAR_INDEX]})")
+            print(f" {i + 1}. {album[TITLE_INDEX]:{max_title_length}s} "
+                  f"by {album[ARTIST_INDEX]:{max_artist_length}s} "
+                  f"{album[YEAR_INDEX]}")
 
-    if required_count > 0:
-        print(f"{required_count} albums still required.")
-    else:
-        print("No required albums. Awesome!")
+    print(f"\n{len(sorted_albums)} albums in archive. "
+          f"You still want to listen to {required_count} albums.")
 
 
 def recommend_album(albums):
     """Recommend a random required album."""
     required_albums = [album for album in albums if album[STATUS_INDEX] == REQUIRED]
     if len(required_albums) == 0:
-        print("No required albums. Great, you have listened to all of them!")
+        print("No required albums. All albums completed!")
     else:
+        print("Not sure what to listen to next?")
         album = random.choice(required_albums)
-        print(f"You should listen to {album[TITLE_INDEX]} by {album[ARTIST_INDEX]}")
+        print(f"How about... {album[TITLE_INDEX]} by {album[ARTIST_INDEX]} "
+              f"({album[YEAR_INDEX]})")
 
 
 def add_album(albums):
@@ -126,12 +131,11 @@ def add_album(albums):
     year = get_valid_year("Year: ")
     album = [title, artist, year, REQUIRED]
     albums.append(album)
-    print(f"{title} by {artist} ({year}) added to album list")
+    print(f"{title} by {artist} ({year}) added to Albums Archive.")
 
 
 def mark_album_completed(albums):
     """Mark an album as completed."""
-    # Check if there are any required albums
     required_albums = [album for album in albums if album[STATUS_INDEX] == REQUIRED]
     if len(required_albums) == 0:
         print("No required albums.")
@@ -140,8 +144,9 @@ def mark_album_completed(albums):
     display_albums(albums)
     print("Enter the number of an album to mark as completed")
 
-    # Get sorted list to match display order
-    sorted_albums = sorted(albums, key=itemgetter(STATUS_INDEX, YEAR_INDEX))
+    # Get sorted list matching display order
+    sorted_albums = sorted(albums, key=itemgetter(YEAR_INDEX))
+    sorted_albums.sort(key=itemgetter(STATUS_INDEX), reverse=True)
 
     valid_input = False
     while not valid_input:
@@ -161,7 +166,8 @@ def mark_album_completed(albums):
         print(f"You have already completed {selected_album[TITLE_INDEX]}")
     else:
         selected_album[STATUS_INDEX] = COMPLETED
-        print(f"{selected_album[TITLE_INDEX]} by {selected_album[ARTIST_INDEX]} marked as completed")
+        print(f"{selected_album[TITLE_INDEX]} by {selected_album[ARTIST_INDEX]} "
+              f"completed!")
 
 
 def get_non_empty_string(prompt):
